@@ -11,7 +11,7 @@ public class TokenFactoryDFA
     private static final char[] zeroDigit = {'0'};
     private static final char[] octalDigits = {'1', '2', '3', '4', '5', '6', '7'};
     private static final char[] nonZeroDigits = {'8', '9'};
-    private static final char[] operators = {'+', '-', '/', '*'};
+    private static final char[] operators = {'+', '-', '/', '*', '^', '(', ')'};
     private static final char[] hexDigits = {'A','B','C','D','E','F','a','b','c','d','e','f'};
     private static final char[] ignore = {'_'};
 
@@ -24,7 +24,6 @@ public class TokenFactoryDFA
         ZeroDecInt,
         OctInt,
         HexInt,
-        Close
     }
     private LinkedList<Token> tokensList;
     private Deque<Character> currentTokenChars;
@@ -41,7 +40,7 @@ public class TokenFactoryDFA
      * Step By Step Loop
      * @param c
      */
-    public void takeStep(char c)
+    public void takeStep(char c) throws RuntimeException
     {
         switch(factoryState)
         {
@@ -77,26 +76,37 @@ public class TokenFactoryDFA
             {
                 hexIntStateActions(c);
             }
-            case Close ->
-            {
-                closeStateActions(c);
-            }
         }
+    }
+
+    private void bufferToToken(Token.TokenType type)
+    {
+        Character[] tokenData = new Character[currentTokenChars.size()];
+        int i = 0;
+        while(!currentTokenChars.isEmpty())
+        {
+            tokenData[i] = currentTokenChars.poll();
+            i++;
+        }
+        tokensList.add(new Token(type, tokenData));
     }
 
     private void preStartStateActions(char c)
     {
 
     }
-    private void startStateActions(char c)
+
+    private void startStateActions(char c) throws RuntimeException
     {
         if (isZero(c))
         {
-
+            this.factoryState = States.Undecided;
+            currentTokenChars.push(c);
         }
         else if (isNonZeroDecimal(c))
         {
-
+            this.factoryState = States.DecInt;
+            currentTokenChars.push(c);
         }
         else if(isOperator(c))
         {
@@ -105,36 +115,85 @@ public class TokenFactoryDFA
         }
         else
         {
-
+            throw new RuntimeException(String.valueOf(c) + " at start State");
         }
     }
+
     private void opStateActions(char c)
     {
-
-
+        bufferToToken(Token.TokenType.OPERATOR);
+        this.factoryState = States.Start;
+        startStateActions(c);
     }
+
     private void decIntStateActions(char c)
     {
-
+        if(isDecimal(c) || c == '_')
+        {
+            factoryState = States.DecInt;
+            currentTokenChars.push(c);
+        }
+        else
+        {
+            bufferToToken(Token.TokenType.DEC_INT);
+            factoryState = States.Start;
+            startStateActions(c);
+        }
     }
+
     private void hexIntStateActions(char c)
     {
-
+        if(isHex(c)){
+            currentTokenChars.push(c);
+        } else {
+            bufferToToken(Token.TokenType.HEX_INT);
+            factoryState = States.Start;
+            startStateActions(c);
+        }
     }
+
     private void octIntStateActions(char c)
     {
+        if(isOctal(c)){
+            currentTokenChars.push(c);
+        } else {
+            bufferToToken(Token.TokenType.OCT_INT);
+            factoryState = States.Start;
+            startStateActions(c);
+        }
+    }
+
+    private void undecidedStateActions(char c) throws RuntimeException
+    {
+        if(isZero(c))
+        {
+            factoryState = States.ZeroDecInt;
+            currentTokenChars.push(c);
+        }
+        else if (c == 'O' || c == 'o')
+        {
+            factoryState = States.OctInt;
+            currentTokenChars.push(c);
+        }
+        else if (c == 'X' || c == 'x')
+        {
+            factoryState = States.HexInt;
+            currentTokenChars.push(c);
+        }
+        else {
+            throw new RuntimeException(c + " at undecided state.");
+        }
 
     }
-    private void undecidedStateActions(char c)
+    private void zeroIntStateActions(char c) throws RuntimeException
     {
-
-    }
-    private void zeroIntStateActions(char c)
-    {
-
-    }
-    private void closeStateActions(char c)
-    {
+        if(isZero(c) || c == '_'){
+            currentTokenChars.push(c);
+        } else {
+            bufferToToken(Token.TokenType.DEC_INT);
+            factoryState = States.Start;
+            startStateActions(c);
+        }
 
     }
 
@@ -172,16 +231,6 @@ public class TokenFactoryDFA
         return false;
     }
 
-    private boolean shouldIgnore(char c)
-    {
-        for (char ig : ignore)
-        {
-            if (c == ig)
-                return true;
-        }
-        return false;
-    }
-
     /**
      * If internal buffer state is in accept state create final token.
      * else trow syntax fail.
@@ -189,11 +238,43 @@ public class TokenFactoryDFA
      */
     public boolean endInput()
     {
-
-        return false;
+        switch (factoryState)
+        {
+            case DecInt, ZeroDecInt ->
+            {
+                bufferToToken(Token.TokenType.DEC_INT);
+            }
+            case OctInt ->
+            {
+                bufferToToken(Token.TokenType.OCT_INT);
+            }
+            case HexInt ->
+            {
+                bufferToToken(Token.TokenType.HEX_INT);
+            }
+            case Op ->
+            {
+                bufferToToken(Token.TokenType.OPERATOR);
+            }
+            default ->
+            {
+                bufferToToken(Token.TokenType.ERROR);
+                return false;
+            }
+        }
+        return true;
     }
 
+    public LinkedList<Token> getTokensList()
+    {
+        return this.tokensList;
+    }
 
-
+    public void reset()
+    {
+        this.factoryState = States.Start;
+        this.tokensList = new LinkedList<>();
+        this.currentTokenChars = new LinkedList<>();
+    }
 
 }
