@@ -197,31 +197,31 @@ public class TokenFactoryDFA
 
     }
 
-    private boolean isZero(char c)
+    public static boolean isZero(char c)
     {
         return c == '0';
     }
-    private boolean isOctal(char c)
+    public static boolean isOctal(char c)
     {
         return isZero(c) || ((c > '0') && (c <= '7'));
     }
 
-    private boolean isDecimal(char c)
+    public static boolean isDecimal(char c)
     {
         return isOctal(c) || ((c > '7') && (c <= '9'));
     }
 
-    private boolean isNonZeroDecimal(char c)
+    public static boolean isNonZeroDecimal(char c)
     {
         return !isZero(c) && isDecimal(c);
     }
 
-    private boolean isHex(char c)
+    public static boolean  isHex(char c)
     {
         return isDecimal(c) || ((c >= 'A')&&( c <= 'F')) || ((c >= 'a')&&(c <= 'f')) ;
     }
 
-    private boolean isOperator(char c)
+    public static boolean  isOperator(char c)
     {
         for (char op : operators)
         {

@@ -23,9 +23,12 @@ public class TokenReader {
 
     /**
      * Read the expression from left to right
-     * If current element is a value (e.g. Integer) push it to the stack
-     * If current element is an operator, pop last two operands from stack, apply operator and push the result back to the stack
-     * After doing this steps, the very last element that was left in the stack will be our answer. Simple, pop the last element and return it.
+     * If current element is a value push it to the stack
+     * If current element is an operator,
+     *      pop last two operands from stack,
+     *      apply operator and
+     *      push the result back to the stack
+     * the very last element that was left in the stack will be our answer
      *
      * @throws RuntimeException
      */

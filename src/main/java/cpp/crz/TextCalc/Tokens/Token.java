@@ -39,8 +39,10 @@ public class Token
     public String toString() {
         return "Token{" +
                 "tokenType=" + tokenType +
-                ", tokenData=" + Arrays.toString(tokenData) +
+                ", tokenDataRAW=" + Arrays.toString(tokenData) +
+                ", tokenData=" + ((tokenType != TokenType.OPERATOR) ? getDataAsLong(this) : null) +
                 '}';
+
     }
 
     public static int getDataAsInT(Token tk) throws TokenTypeMismatch
@@ -64,8 +66,18 @@ public class Token
 
         for(int i=0; i<tk.getTokenData().length; i++)
         {
-            returnVal += (int)(tk.getTokenData()[i] - '0') *  (int)(Math.pow(base, i));
+            char currentChar = tk.tokenData[i];
+            if(TokenFactoryDFA.isDecimal(currentChar))
+                returnVal += (int)(currentChar - '0') *  (int)(Math.pow(base, i));
+            else if (TokenFactoryDFA.isHex(currentChar))
+            {
+                if(currentChar <= 'F')
+                    returnVal += (int)(currentChar - 'F' + 10) *  (int)(Math.pow(base, i));
+                else
+                    returnVal += (int)(currentChar - 'f' + 10) *  (int)(Math.pow(base, i));
+            }
         }
+
         return returnVal;
     }
 
@@ -73,10 +85,6 @@ public class Token
     {
         if(!(tk.tokenType == TokenType.DEC_INT || tk.tokenType == TokenType.HEX_INT || tk.tokenType == TokenType.OCT_INT ))
             throw new TokenTypeMismatch();
-
-        if(tk.getTokenData().length > 9)
-            if(tk.getTokenData()[9] > '2')
-                throw new RuntimeException("NeedsLong");
 
         int base = 0;
         switch (tk.getTokenType())
@@ -90,7 +98,16 @@ public class Token
 
         for(int i=0; i<tk.getTokenData().length; i++)
         {
-            returnVal += (long) (tk.getTokenData()[i] - '0') * (int)(Math.pow(base, i) ) ;
+            char currentChar = tk.tokenData[i];
+            if(TokenFactoryDFA.isDecimal(currentChar))
+                returnVal += (long)(currentChar - '0') *  (int)(Math.pow(base, i));
+            else if (TokenFactoryDFA.isHex(currentChar))
+            {
+                if(currentChar <= 'F')
+                    returnVal += (long)(currentChar - 'F' + 10) *  (int)(Math.pow(base, i));
+                else
+                    returnVal += (long)(currentChar - 'f' + 10) *  (int)(Math.pow(base, i));
+            }
         }
         return returnVal;
 
