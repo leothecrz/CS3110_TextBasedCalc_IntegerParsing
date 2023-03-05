@@ -2,7 +2,6 @@ package cpp.crz.TextCalc.Tokens;
 
 import java.util.Deque;
 import java.util.LinkedList;
-import java.util.Queue;
 
 public class TokenFactoryDFA
 {
@@ -13,9 +12,9 @@ public class TokenFactoryDFA
     private static final char[] nonZeroDigits = {'8', '9'};
     private static final char[] operators = {'+', '-', '/', '*', '^', '(', ')'};
     private static final char[] hexDigits = {'A','B','C','D','E','F','a','b','c','d','e','f'};
-    private static final char[] ignore = {'_'};
-
-    private enum States{
+    private static final char[] ignore = {'_', ' '};
+    private enum States
+    {
         PreStart,
         Start,
         Op,
@@ -28,12 +27,14 @@ public class TokenFactoryDFA
     private LinkedList<Token> tokensList;
     private Deque<Character> currentTokenChars;
     private States factoryState;
+    private int stepsTaken;
 
     public TokenFactoryDFA()
     {
         tokensList = new LinkedList<>();
         currentTokenChars = new LinkedList<>();
         factoryState = States.Start;
+        stepsTaken = 0;
     }
 
     /**
@@ -42,43 +43,27 @@ public class TokenFactoryDFA
      */
     public void takeStep(char c) throws RuntimeException
     {
+        stepsTaken++;
         switch(factoryState)
         {
-            case PreStart ->
+            case Start -> startStateActions(c);
+            case Op -> opStateActions(c);
+            case DecInt -> decIntStateActions(c);
+            case Undecided -> undecidedStateActions(c);
+            case ZeroDecInt -> zeroIntStateActions(c);
+            case OctInt -> octIntStateActions(c);
+            case HexInt -> hexIntStateActions(c);
+            default ->
             {
-                preStartStateActions(c);
-            }
-            case Start ->
-            {
-                startStateActions(c);
-            }
-            case Op ->
-            {
-                opStateActions(c);
-            }
-            case DecInt ->
-            {
-                decIntStateActions(c);
-            }
-            case Undecided ->
-            {
-                undecidedStateActions(c);
-            }
-            case ZeroDecInt ->
-            {
-                zeroIntStateActions(c);
-            }
-            case OctInt ->
-            {
-                octIntStateActions(c);
-            }
-            case HexInt ->
-            {
-                hexIntStateActions(c);
+                throw new RuntimeException("State Unrecognized - Catastrophic Failure");
             }
         }
     }
 
+    /**
+     * Stop at current state and make a token with the buffer.
+     * @param type
+     */
     private void bufferToToken(Token.TokenType type)
     {
         Character[] tokenData = new Character[currentTokenChars.size()];
@@ -89,11 +74,6 @@ public class TokenFactoryDFA
             i++;
         }
         tokensList.add(new Token(type, tokenData));
-    }
-
-    private void preStartStateActions(char c)
-    {
-
     }
 
     private void startStateActions(char c) throws RuntimeException
@@ -112,16 +92,45 @@ public class TokenFactoryDFA
         {
             this.factoryState = States.Op;
             currentTokenChars.push(c);
-        }
-        else
+        } else if (isIgnorable(c)) {
+
+        } else
         {
-            throw new RuntimeException(String.valueOf(c) + " at start State");
+            throw new RuntimeException(String.valueOf(c) + " at start State. Index:" + String.valueOf(stepsTaken));
         }
+    }
+
+    private boolean negationCheck()
+    {
+        if(this.tokensList.size() == 1)
+        {
+            this.tokensList.getLast().setNegativeINT(true);
+            return true;
+        }
+
+        if(this.tokensList.size() > 1)
+        {
+            if (this.tokensList.get(this.tokensList.size() - 2).getTokenData()[0] == '(') {
+                this.tokensList.getLast().setNegativeINT(true);
+                return true;
+            }
+
+            if (isOperator(this.tokensList.get(this.tokensList.size() - 2).getTokenData()[0])) {
+                this.tokensList.getLast().setNegativeINT(true);
+                return true;
+            }
+        }
+        return false;
+
     }
 
     private void opStateActions(char c)
     {
         bufferToToken(Token.TokenType.OPERATOR);
+        if (this.tokensList.getLast().getTokenData()[0] == '-')
+        {
+            negationCheck();
+        }
         this.factoryState = States.Start;
         startStateActions(c);
     }
@@ -180,8 +189,15 @@ public class TokenFactoryDFA
             factoryState = States.HexInt;
             currentTokenChars.push(c);
         }
-        else {
-            throw new RuntimeException(c + " at undecided state.");
+        else if (isOperator(c))
+        {
+            bufferToToken(Token.TokenType.DEC_INT);
+            factoryState = States.Start;
+            startStateActions(c);
+        }
+        else
+        {
+            throw new RuntimeException(c + " at undecided state." + (isDecimal(c) ? " Leading Zeros Invalid" : "" ));
         }
 
     }
@@ -231,16 +247,26 @@ public class TokenFactoryDFA
         return false;
     }
 
+    public static boolean  isIgnorable(char c)
+    {
+        for (char op : ignore)
+        {
+            if (c == op)
+                return true;
+        }
+        return false;
+    }
+
     /**
      * If internal buffer state is in accept state create final token.
      * else trow syntax fail.
      * @return
      */
-    public boolean endInput()
+    public void endInput()
     {
         switch (factoryState)
         {
-            case DecInt, ZeroDecInt ->
+            case DecInt, ZeroDecInt, Undecided ->
             {
                 bufferToToken(Token.TokenType.DEC_INT);
             }
@@ -259,10 +285,8 @@ public class TokenFactoryDFA
             default ->
             {
                 bufferToToken(Token.TokenType.ERROR);
-                return false;
             }
         }
-        return true;
     }
 
     public LinkedList<Token> getTokensList()
@@ -275,6 +299,7 @@ public class TokenFactoryDFA
         this.factoryState = States.Start;
         this.tokensList = new LinkedList<>();
         this.currentTokenChars = new LinkedList<>();
+        this.stepsTaken = 0;
     }
 
 }

@@ -18,11 +18,13 @@ public class Token
 
     private TokenType tokenType;
     private Character[] tokenData;
+    private boolean isNegativeINT;
 
     public Token(TokenType type, Character[] data)
     {
         tokenType = type;
         tokenData = data.clone();
+        isNegativeINT = false;
     }
 
     public TokenType getTokenType()
@@ -35,12 +37,24 @@ public class Token
         return tokenData;
     }
 
+    public boolean isNegativeINT()
+    {
+        return this.isNegativeINT;
+    }
+
+    public void setNegativeINT(boolean bool)
+    {
+        this.isNegativeINT = bool;
+    }
+
+
     @Override
     public String toString() {
-        return "Token{" +
+        return "    Token{" +
                 "tokenType=" + tokenType +
                 ", tokenDataRAW=" + Arrays.toString(tokenData) +
-                ", tokenData=" + ((tokenType != TokenType.OPERATOR) ? getDataAsLong(this) : null) +
+                ", tokenData=" + (((tokenType == TokenType.ERROR)||(tokenType == TokenType.OPERATOR)) ?  null: getDataAsLong(this))  +
+                ", isNegative= " + this.isNegativeINT +
                 '}';
 
     }
@@ -109,7 +123,7 @@ public class Token
                     returnVal += (long)(currentChar - 'f' + 10) *  (int)(Math.pow(base, i));
             }
         }
-        return returnVal;
+        return ((tk.isNegativeINT()) ? ((-1) * returnVal) : returnVal);
 
     }
 
@@ -120,6 +134,11 @@ public class Token
 
         return tk.getTokenData()[0];
 
+    }
+
+    public static Token getZeroToken()
+    {
+        return new Token(TokenType.DEC_INT, new Character[] {'0'});
     }
 
 
