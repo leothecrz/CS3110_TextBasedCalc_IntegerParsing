@@ -3,6 +3,7 @@ package cpp.crz.TextCalc.Tokens;
 import cpp.crz.TextCalc.Errors.TokenTypeMismatch;
 
 import java.util.Arrays;
+import java.util.Objects;
 
 public class Token
 {
@@ -16,15 +17,15 @@ public class Token
         ERROR
     }
 
-    private TokenType tokenType;
-    private Character[] tokenData;
-    private boolean isNegativeINT;
+    private final TokenType tokenType;
+    private final Character[] tokenData;
+    private boolean negativeFlag;
 
     public Token(TokenType type, Character[] data)
     {
         tokenType = type;
         tokenData = data.clone();
-        isNegativeINT = false;
+        negativeFlag = false;
     }
 
     public TokenType getTokenType()
@@ -37,62 +38,25 @@ public class Token
         return tokenData;
     }
 
-    public boolean isNegativeINT()
+    public boolean hasNegativeFlag()
     {
-        return this.isNegativeINT;
+        return this.negativeFlag;
     }
 
-    public void setNegativeINT(boolean bool)
+    public void setNegativeFlag(boolean bool)
     {
-        this.isNegativeINT = bool;
+        this.negativeFlag = bool;
     }
-
 
     @Override
     public String toString() {
-        return "    Token{" +
+        return  "Token{" +
                 "tokenType=" + tokenType +
                 ", tokenDataRAW=" + Arrays.toString(tokenData) +
                 ", tokenData=" + (((tokenType == TokenType.ERROR)||(tokenType == TokenType.OPERATOR)) ?  null: getDataAsLong(this))  +
-                ", isNegative= " + this.isNegativeINT +
+                ", isNegative= " + this.negativeFlag +
                 '}';
 
-    }
-
-    public static int getDataAsInT(Token tk) throws TokenTypeMismatch
-    {
-        if(!(tk.tokenType == TokenType.DEC_INT || tk.tokenType == TokenType.HEX_INT || tk.tokenType == TokenType.OCT_INT ))
-            throw new TokenTypeMismatch();
-
-        int base = 0;
-        switch (tk.getTokenType())
-        {
-            case DEC_INT -> base = 10;
-            case HEX_INT -> base = 16;
-            case OCT_INT -> base = 8;
-        }
-
-        if(tk.getTokenData().length > 9)
-            if(tk.getTokenData()[9] > '2')
-                throw new RuntimeException("NeedsLong");
-
-        int returnVal = 0;
-
-        for(int i=0; i<tk.getTokenData().length; i++)
-        {
-            char currentChar = tk.tokenData[i];
-            if(TokenFactoryDFA.isDecimal(currentChar))
-                returnVal += (int)(currentChar - '0') *  (int)(Math.pow(base, i));
-            else if (TokenFactoryDFA.isHex(currentChar))
-            {
-                if(currentChar <= 'F')
-                    returnVal += (int)(currentChar - 'F' + 10) *  (int)(Math.pow(base, i));
-                else
-                    returnVal += (int)(currentChar - 'f' + 10) *  (int)(Math.pow(base, i));
-            }
-        }
-
-        return returnVal;
     }
 
     public static long getDataAsLong(Token tk) throws TokenTypeMismatch
@@ -113,18 +77,17 @@ public class Token
         for(int i=0; i<tk.getTokenData().length; i++)
         {
             char currentChar = tk.tokenData[i];
-            if(TokenFactoryDFA.isDecimal(currentChar))
-                returnVal += (long)(currentChar - '0') *  (int)(Math.pow(base, i));
-            else if (TokenFactoryDFA.isHex(currentChar))
+            if(TokenFactoryNFA.isDecimal(currentChar))
+                returnVal += (long)(currentChar - '0') *  (Math.pow(base, i));
+            else if (TokenFactoryNFA.isHex(currentChar))
             {
                 if(currentChar <= 'F')
-                    returnVal += (long)(currentChar - 'F' + 10) *  (int)(Math.pow(base, i));
+                    returnVal += (long)(currentChar - 'A' + 10) *  (Math.pow(base, i));
                 else
-                    returnVal += (long)(currentChar - 'f' + 10) *  (int)(Math.pow(base, i));
+                    returnVal += (long)(currentChar - 'a' + 10) *  (Math.pow(base, i));
             }
         }
-        return ((tk.isNegativeINT()) ? ((-1) * returnVal) : returnVal);
-
+        return ((tk.hasNegativeFlag()) ? ((-1) * returnVal) : returnVal);
     }
 
     public static char getDataAsChar(Token tk) throws TokenTypeMismatch
@@ -141,43 +104,20 @@ public class Token
         return new Token(TokenType.DEC_INT, new Character[] {'0'});
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Token token = (Token) o;
+        return negativeFlag == token.negativeFlag &&
+                tokenType == token.tokenType &&
+                Arrays.equals(tokenData, token.tokenData);
+    }
 
-
-    //    /**
-//     * WIP
-//     * @return
-//     * @throws TokenTypeMismatch
-//     */
-//    public long getDataLong() throws TokenTypeMismatch
-//    {
-//        if(!needsLong)
-//            throw new TokenTypeMismatch();
-//        return 0;
-//    }
-//
-//    /**
-//     * WIP
-//     * @return
-//     * @throws TokenTypeMismatch
-//     */
-//    public int getDataInt()throws TokenTypeMismatch
-//    {
-//        if(needsLong)
-//            throw new TokenTypeMismatch();
-//        return 0;
-//    }
-//
-//    /**
-//     * WIP
-//     * @return
-//     * @throws TokenTypeMismatch
-//     */
-//    public char getOp() throws TokenTypeMismatch
-//    {
-//        if(this.tokenType != TokenType.OPERATOR && this.tokenType !=TokenType.OPEN_PARENTHESIS && this.tokenType !=TokenType.CLOSED_PARENTHESIS)
-//            throw new TokenTypeMismatch();
-//        return '\0';
-//    }
-
-
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(tokenType, negativeFlag);
+        result = 41 * result + Arrays.hashCode(tokenData);
+        return result;
+    }
 }

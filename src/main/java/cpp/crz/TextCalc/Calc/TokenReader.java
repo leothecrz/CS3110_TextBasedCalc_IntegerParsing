@@ -1,40 +1,54 @@
 package cpp.crz.TextCalc.Calc;
 
-import com.sun.jdi.Value;
+import com.sun.source.doctree.ValueTree;
 import cpp.crz.TextCalc.Tokens.Token;
-import cpp.crz.TextCalc.Tokens.TokenFactoryDFA;
+import cpp.crz.TextCalc.Tokens.TokenFactoryNFA;
 
 import java.util.EmptyStackException;
 import java.util.LinkedList;
 import java.util.Stack;
+import java.util.concurrent.ExecutionException;
 
 public class TokenReader {
 
     private LinkedList<Token> tokenLinkedList;
 
-    Stack<Token> memory = new Stack<>();
-
-    private Token NumOne;
-    private Token NumTwo;
-    private Token Operator;
+    private Stack<Token> memory;
 
     /**
-     *
-     * @param tokenList
+     * constructor
+     * @param tokenList list of tokens
      */
-    public TokenReader(LinkedList<Token> tokenList)
+    public TokenReader(LinkedList<Token> tokenList, boolean runCalculation)
     {
         tokenLinkedList = new LinkedList<>();
-        toPostFix(tokenList);
-
-        for(int i=0; i< tokenLinkedList.size(); i++)
+        memory = new Stack<>();
+        try
         {
+            toPostFix(tokenList);
+        }
+        catch (RuntimeException RE)
+        {
+            runCalculation = false;
+            memory = null;
+            System.out.println("To PostFix Failed");
+        }
+
+        for(int i=0; i< tokenLinkedList.size(); i++)  {
             System.out.println(tokenLinkedList.get(i));
         } System.out.println("      PostFix Operation Done");
 
+        if(runCalculation)
+            runCalculation();
     }
 
-    public Stack<Token> runCalculation() throws RuntimeException
+    public Stack<Token> getMemory()
+    {
+        return this.memory;
+    }
+
+
+    public Stack<Token> runCalculation()
     {
 
         memory = new Stack<>();
@@ -44,7 +58,16 @@ public class TokenReader {
         {
             if(currentTK.getTokenType() == Token.TokenType.OPERATOR)
             {
-                operatorCalculation(currentTK);
+                try
+                {
+                    operatorCalculation(currentTK);
+                }
+                catch (RuntimeException RTE)
+                {
+                    System.out.println("\n      Error During Calculation: " + RTE.getMessage());
+                    memory = null;
+                    return null;
+                }
             }
             else
             {
@@ -63,12 +86,11 @@ public class TokenReader {
         switch (tk.getTokenData()[0])
         {
             case '+' ->
-            {
                 sum = additionCalculation(tk);
-            }
+
             case '-' ->
             {
-                if(tk.isNegativeINT())
+                if(tk.hasNegativeFlag())
                 {
                     sum = negationCalculation(tk);
                 }
@@ -78,20 +100,17 @@ public class TokenReader {
                 }
             }
             case '/' ->
-            {
                 sum = divisionCalculation(tk);
-            }
+
             case '*' ->
-            {
                 sum = multiplicationCalculation(tk);
-            }
+
             case '^' ->
-            {
                 sum = powerCalculation(tk);
-            }
+
         }
 
-        TokenFactoryDFA factoryDFA = new TokenFactoryDFA();
+        TokenFactoryNFA factoryDFA = new TokenFactoryNFA();
         String stringSum = String.valueOf(sum);
         for (int i = 0; i < stringSum.length(); i++) {
             factoryDFA.takeStep(stringSum.charAt(i));
@@ -100,50 +119,78 @@ public class TokenReader {
 
         if(factoryDFA.getTokensList().size() > 1)
         {
-            factoryDFA.getTokensList().getLast().setNegativeINT(!factoryDFA.getTokensList().getLast().isNegativeINT());
+            factoryDFA.getTokensList().getLast().setNegativeFlag(!factoryDFA.getTokensList().getLast().hasNegativeFlag());
         }
         Token pollLast = factoryDFA.getTokensList().pollLast();
         memory.push(pollLast);
 
     }
 
-    private long additionCalculation(Token tk) throws RuntimeException
-    {
-        Token valOne = memory.pop();
-        Token ValTwo = memory.pop();
-        long sum = Token.getDataAsLong(valOne) + Token.getDataAsLong(ValTwo);
-        return sum;
+    private long additionCalculation(Token tk) throws RuntimeException {
+
+        Token valOne = null;
+        Token valTwo = null;
+        try {
+            valOne = memory.pop();
+            valTwo = memory.pop();
+            long sum = Token.getDataAsLong(valOne) + Token.getDataAsLong(valTwo);
+            return sum;
+        } catch (EmptyStackException ESE) {
+            throw new RuntimeException(("Addition Failure \nTokenOne: " + valOne + " \nTokenTwo: " + valTwo), ESE);
+        }
+
     }
 
-    private long negationCalculation(Token tk) throws RuntimeException
-    {
-        Token valOne = memory.pop();
-        long sum = Token.getDataAsLong(valOne) * (-1);
-        return sum;
+    private long negationCalculation(Token tk) throws RuntimeException {
+
+        Token valOne = null;
+        try {
+            valOne = memory.pop();
+            long sum = Token.getDataAsLong(valOne) * (-1);
+            return sum;
+        } catch (EmptyStackException ESE) {
+            throw new RuntimeException(("Negation Failure \nTokenOne: " + valOne), ESE);
+        }
+
     }
 
-    private long subtractionCalculation(Token tk) throws RuntimeException
-    {
-        Token ValTwo = memory.pop();
-        Token valOne = memory.pop();
-        long sum = Token.getDataAsLong(valOne) - Token.getDataAsLong(ValTwo);
-        return sum;
+    private long subtractionCalculation(Token tk) throws RuntimeException {
+        Token valOne = null;
+        Token valTwo = null;
+        try {
+            valTwo = memory.pop();
+            valOne = memory.pop();
+            long sum = Token.getDataAsLong(valOne) - Token.getDataAsLong(valTwo);
+            return sum;
+        } catch (EmptyStackException ESE) {
+            throw new RuntimeException(("Subtraction Failure \nTokenOne: " + valOne + " \nTokenTwo: " + valTwo), ESE);
+        }
     }
 
-    private long divisionCalculation(Token tk) throws RuntimeException
-    {
-        Token ValTwo = memory.pop();
-        Token valOne = memory.pop();
-        long sum = Token.getDataAsLong(valOne) / Token.getDataAsLong(ValTwo);
-        return sum;
+    private long divisionCalculation(Token tk) throws RuntimeException {
+        Token valOne = null;
+        Token valTwo = null;
+        try {
+            valTwo = memory.pop();
+            valOne = memory.pop();
+            long sum = Token.getDataAsLong(valOne) / Token.getDataAsLong(valTwo);
+            return sum;
+        } catch (EmptyStackException ESE) {
+            throw new RuntimeException(("Division Failure \nTokenOne: " + valOne + " \nTokenTwo: " + valTwo), ESE);
+        }
     }
 
-    private long multiplicationCalculation(Token tk) throws RuntimeException
-    {
-        Token valOne = memory.pop();
-        Token ValTwo = memory.pop();
-        long sum = Token.getDataAsLong(valOne) * Token.getDataAsLong(ValTwo);
-        return sum;
+    private long multiplicationCalculation(Token tk) throws RuntimeException {
+        Token valOne = null;
+        Token valTwo = null;
+        try {
+            valOne = memory.pop();
+            valTwo = memory.pop();
+            long sum = Token.getDataAsLong(valOne) * Token.getDataAsLong(valTwo);
+            return sum;
+        } catch (EmptyStackException ESE) {
+            throw new RuntimeException(("Multiplication Failure \nTokenOne: " + valOne + " \nTokenTwo: " + valTwo), ESE);
+        }
     }
 
     private long powerCalculation(Token tk) throws RuntimeException
@@ -151,115 +198,12 @@ public class TokenReader {
         return 0;
     }
 
-
-
-
     /**
-     * Read the expression from left to right
-     * If current element is a value push it to the stack
-     * If current element is an operator,
-     *      pop last two operands from stack,
-     *      apply operator and
-     *      push the result back to the stack
-     * the very last element that was left in the stack will be our answer
-     *
-     * @throws RuntimeException
+     * Given a list of tokens will read from left to right assuming infix notation.
+     * Will store in buffer the postfix ordered list.
+     * @param tokens - infix sorted list
      */
-    public LinkedList<Token> calculate() throws RuntimeException
-    {
-        Stack<Token> memoryStack = new Stack<>();
-        Token tk, returnToken;
-        Token valOneTk, valTwoTk;
-        while( (tk = tokenLinkedList.pollLast()) != null)
-        {
-            if(tk.getTokenType() == Token.TokenType.OPERATOR )
-            {
-                valOneTk = memoryStack.pop();
-                try
-                {
-                    valTwoTk = memoryStack.pop();
-                    LinkedList<Token> opReturn = runOperationOn(tk, valOneTk, valTwoTk);
-                    returnToken = opReturn.pollLast();
-                    if(opReturn.size() == 2)
-                    {
-                        returnToken.setNegativeINT(true);
-                    }
-                    memoryStack.push(returnToken);
-                }
-                catch (EmptyStackException ESE)
-                {
-                    if(tk.getTokenData()[0] != '-')
-                        throw new RuntimeException("", ESE);
-                    valOneTk.setNegativeINT(true);
-                    memoryStack.push(valOneTk);
-
-//                    valTwoTk = Token.getZeroToken();
-//                    LinkedList<Token> opReturn = runOperationOn(tk, valOneTk, valTwoTk);
-//                    Token returnToken;
-//                    while ((returnToken = opReturn.pollLast()) != null)
-//                        memoryStack.push(returnToken);
-                }
-
-            } else {
-                memoryStack.push(tk);
-            }
-        }
-
-        LinkedList<Token> returnList = new LinkedList<>();
-        while(!memoryStack.isEmpty())
-        {
-            returnList.addLast(memoryStack.pop());
-        }
-        return returnList;
-    }
-
-    /**
-     * Given An Operator Token and 2 Integer Tokens will run the operation and return the result.
-     * @param op
-     * @param valOne
-     * @param valTwo
-     * @return
-     */
-    private LinkedList<Token> runOperationOn(Token op, Token valOne, Token valTwo)
-    {
-        long out = 0;
-
-        long valueOne = Token.getDataAsLong(valOne);
-        long valueTwo = Token.getDataAsLong(valTwo);
-
-        switch (op.getTokenData()[0]) {
-            //Order Does Not Matter
-            case '+' -> out = valueOne + valueTwo;
-            case '*' -> out = valueOne * valueTwo;
-
-            //Order Matters
-            case '/' -> out = valueOne / valueTwo;
-            case '-' -> out = valueOne - valueTwo;
-            case '^' ->
-                {
-                    out = valueTwo;
-                    for (long i = 1; i < valueOne; i++) {
-                        out *= valueTwo;
-                }
-            }
-
-        }
-
-        String outString = String.valueOf(out);
-        TokenFactoryDFA tempFactory = new TokenFactoryDFA();
-        for (int i = 0; i <outString.length(); i++) {
-            tempFactory.takeStep(outString.charAt(i));
-        }
-        tempFactory.endInput();
-
-        return  tempFactory.getTokensList();
-    }
-
-    /**
-     * Reads from left to right and orders into postfix notation
-     * @param tokens
-     */
-    public void toPostFix(LinkedList<Token> tokens)
+    public void toPostFix(LinkedList<Token> tokens) throws RuntimeException
     {
         Stack<Token> memoryStack = new Stack<>();
 
@@ -295,6 +239,8 @@ public class TokenReader {
             {
                 while (!memoryStack.isEmpty() && ( (postFixPrecedenceRank(tk)) <= (postFixPrecedenceRank(memoryStack.peek())) ))
                 {
+                    if(tk.hasNegativeFlag()) // Negation Exception
+                        break;
                     this.tokenLinkedList.push(memoryStack.pop());
                 }
                 memoryStack.push(tk);
@@ -309,9 +255,8 @@ public class TokenReader {
     }
 
     /**
-     *
-     * @param tk
-     * @return
+     * @param tk - Token to be ranked.
+     * @return rank of precedence as a comparable value.
      */
     private int postFixPrecedenceRank(Token tk)
     {
@@ -327,7 +272,7 @@ public class TokenReader {
             }
             case '-' ->
             {
-                if(!tk.isNegativeINT())
+                if(!tk.hasNegativeFlag())
                     return 0;
                 return 10;
             }
@@ -340,17 +285,7 @@ public class TokenReader {
                 return 10;
             }
         }
-
         return -100;
-    }
-
-    /**
-     *
-     * @return
-     */
-    public LinkedList<Token> getTokenLinkedList()
-    {
-        return this.tokenLinkedList;
     }
 
 }
